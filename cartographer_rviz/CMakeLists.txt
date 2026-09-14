@@ -61,6 +61,13 @@ add_library(${PROJECT_NAME} SHARED
   src/submaps_display.cpp
   ${rviz_plugins_headers_to_moc}
 )
+# macOS <math.h> defines isnan()/signbit()/isinf() as function-like macros. When Eigen pulls
+# in libc++ <complex> (which calls std::isnan/std::signbit) inside the AUTOMOC translation unit,
+# those macros expand and break <complex> parsing ("expected unqualified-id"). Force-include
+# <cmath> first (it routes the names to the std:: functions and neutralises the C macros).
+if(APPLE)
+  target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-include cmath")
+endif()
 target_include_directories(${PROJECT_NAME} PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
