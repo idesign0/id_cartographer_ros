@@ -61,12 +61,18 @@ add_library(${PROJECT_NAME} SHARED
   src/submaps_display.cpp
   ${rviz_plugins_headers_to_moc}
 )
-# macOS <math.h> defines isnan()/signbit()/isinf() as function-like macros. When Eigen pulls
-# in libc++ <complex> (which calls std::isnan/std::signbit) inside the AUTOMOC translation unit,
-# those macros expand and break <complex> parsing ("expected unqualified-id"). Force-include
-# <cmath> first (it routes the names to the std:: functions and neutralises the C macros).
+# macOS (MacOSX SDK libc++): when Eigen pulls libc++ <complex> into the AUTOMOC translation unit
+# it fails two ways:
+#   1. <complex> std::abs(__c.imag()) -> "reference to unresolved using declaration", because
+#      <cmath>'s `using ::abs _LIBCPP_USING_IF_EXISTS` was processed before ::abs (the C global,
+#      from <cstdlib>/<stdlib.h>) had been declared, so the using was silently dropped.
+#   2. <math.h>'s isnan()/isinf()/signbit() function-like macros expand inside <complex>
+#      ("expected unqualified-id").
+# Force-include <cstdlib> FIRST (so ::abs exists before any <cmath> using-declaration), then
+# <cmath> (routes the names to std:: and neutralises the C macros). -include cmath alone was
+# insufficient — it fixed the macros but not the unresolved ::abs, so both are needed, in order.
 if(APPLE)
-  target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-include cmath")
+  target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-include cstdlib" "SHELL:-include cmath")
 endif()
 target_include_directories(${PROJECT_NAME} PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
